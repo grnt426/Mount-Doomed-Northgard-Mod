@@ -1,5 +1,5 @@
 /**
- * =======================================
+ * ============================================================================
  * 				Mount Doomed
  *
  * This was written when the mod maker was in Beta. If you are still using this
@@ -7,11 +7,11 @@
  * I update it to use more of the available features. Many things in here
  * aren't great, but were the only way to do it in Beta.
  *
- * Things that don't work/exist or only we can't do: classes, typedefs,
+ * Things that don't work or exist or only we can't do: classes, typedefs,
  * maps, .length on some arrays from the ScriptAPI. Some functions don't
  * work as documented or work weirdly.
  *
- * =======================================
+ * =============================================================================
  */
 
 // Food delivery data
@@ -158,8 +158,6 @@ function onEachLaunch() {
  * @Override
  */
 function regularUpdate(dt : Float) {
-
-
 
 	checkDifficultySelection();
 
@@ -362,6 +360,9 @@ function checkIfPlayerDefeatAI() {
 		var i = 0;
 
 		// try to figure out which AI is missing
+		// NOTE: be very careful with loops which aren't for-each
+		// If you forget to increment the value, you'll infinite loop and
+		// cause a CTD
 		while(i < remainingEnemies.length) {
 			var p = remainingEnemies[i];
 			var found = false;
@@ -381,6 +382,7 @@ function checkIfPlayerDefeatAI() {
 					human.addResource(Resource.Food, computeFoodReward(), false);
 				break;
 			}
+			i++;
 		}
 
 		// Keep this list updated
