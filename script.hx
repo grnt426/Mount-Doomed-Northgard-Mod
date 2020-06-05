@@ -1,15 +1,21 @@
+// Food delivery data
 var deliveryTime = [];
 var deliveryAmount = [];
 var nextDelivery = -1;
+// END Food delivery data
 
 var remainingEnemies = [];
 var clanHomeZones = [];
 
+// Human Player Data
 var human;
 var humanClan;
+// END human player data
 
+// Testing stuff
 var notKilled = true;
 var notKilled2 = true;
+// END testing stuff
 
 function init() {
 	if (state.time == 0)
@@ -42,6 +48,8 @@ function onFirstLaunch() {
 	// Give all players food to start
 	for (player in state.players) {
 		player.addResource(Resource.Food, 500, false);
+		player.addResource(Resource.Wood, 400, false);
+		player.addResource(Resource.Money, 600, false);
 	}
 }
 
@@ -77,7 +85,7 @@ function regularUpdate(dt : Float) {
 	checkIfPlayerDefeatAI();
 
 	// test to see if defeat code works
-	if(state.time > 5 && notKilled) {
+	if(state.time > 3000 && notKilled) {
 		notKilled = false;
 		var ai = remainingEnemies[0];
 		ai.zones[0].takeControl(human);
@@ -100,15 +108,16 @@ function getRemainingEnemies() {
 }
 
 function deliverFoodShipment() {
-	if(nextDelivery == -1)
-		nextDelivery = deliveryTime.pop();
+	if(nextDelivery == -1) {
+		nextDelivery = deliveryTime.shift();
+	}
 
-	if(nextDelivery <= state.time) {
-		var amount = deliveryAmount.pop();
+	if(nextDelivery / 10 <= state.time) {
+		var amount = deliveryAmount.shift();
 		for (player in state.players) {
 			player.addResource(Resource.Food, amount, false);
 		}
-		nextDelivery = deliveryTime.pop();
+		nextDelivery = deliveryTime.shift();
 	}
 }
 
@@ -116,9 +125,7 @@ function deliverFoodShipment() {
  * Players get a reward of food for destroying enemy townhalls.
  */
 function checkIfPlayerDefeatAI() {
-
 	if(len(state.players) - 1 < remainingEnemies.length) {
-
 		var i = 0;
 		while(i < remainingEnemies.length) {
 			var p = remainingEnemies[i];
@@ -134,7 +141,7 @@ function checkIfPlayerDefeatAI() {
 
 				// Only if the human controls the zone do we give reward
 				if(clanHomeZones[i].owner == human)
-					human.addResource(Resource.Wood, 1000, false);
+					human.addResource(Resource.Food, computeFoodReward(), false);
 				break;
 			}
 		}
