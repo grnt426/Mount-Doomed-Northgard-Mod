@@ -133,8 +133,6 @@ function onEachLaunch() {
 	state.objectives.setGoalVal(capFarmsObjId, uncapturedFarmZones.length);
 
 	state.objectives.add(ghostFarmCap, "The spirits lost their farm!", {visible:false});
-
-	human.discoverAll();
 }
 
 /**
@@ -155,19 +153,16 @@ function regularUpdate(dt : Float) {
 
 	checkIfPlayerDefeatAI();
 
-	if(state.time > 15) {
-
-		var a = [];
-		a.push(getZone(134));
-		killAllUnits(a);
-		getZone(134).takeControl(human);
-	}
-
 	checkForCapturedFarms();
 
 	fadeOutMessages();
 }
 
+/**
+ * We can't directly send messages to the player, so using objectives
+ * isn't a bad system. Throw in any messages you want to get rid of after
+ * some time.
+ */
 function fadeOutMessages() {
 	if(ghostFarmStart + 30 < state.time) {
 		state.objectives.setVisible(ghostFarmCap, false);
@@ -175,6 +170,9 @@ function fadeOutMessages() {
 	}
 }
 
+/**
+ * If any players capture a farm for the first time, then Fallen Sailors event is launched.
+ */
 function checkForCapturedFarms() {
 	var capturedFarm = -1;
 
@@ -193,6 +191,7 @@ function checkForCapturedFarms() {
 		}
 	}
 
+	// If it was taken, then let's not consider it in the future and update the objective.
 	if(capturedFarm != -1) {
 		uncapturedFarmZones.remove(capturedFarm);
 		state.objectives.setCurrentVal(capFarmsObjId, 3 - uncapturedFarmZones.length);
