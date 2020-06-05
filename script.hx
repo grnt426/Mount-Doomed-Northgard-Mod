@@ -3,11 +3,10 @@ var deliveryAmount = [];
 var nextDelivery = -1;
 
 var remainingEnemies = [];
+var clanHomeZones = [];
+
 var human;
 var humanClan;
-
-var clanHomeZoneIndex = [];
-var clanHomeZones = [];
 
 var notKilled = true;
 var notKilled2 = true;
@@ -62,7 +61,6 @@ function onEachLaunch() {
 	for (player in state.players) {
 		if(player.isAI) {
 			remainingEnemies.push(player);
-			clanHomeZoneIndex.push(player.clan);
 			clanHomeZones.push(player.getTownHall().zone);
 		}
 		else {
@@ -81,9 +79,8 @@ function regularUpdate(dt : Float) {
 	// test to see if defeat code works
 	if(state.time > 5 && notKilled) {
 		notKilled = false;
-		var ai = remainingEnemies.pop();
-		remainingEnemies.push(ai);
-		ai.zones.pop().takeControl(human);
+		var ai = remainingEnemies[0];
+		ai.zones[0].takeControl(human);
 	}
 }
 
@@ -93,9 +90,11 @@ function regularUpdate(dt : Float) {
  */
 function getRemainingEnemies() {
 	remainingEnemies = [];
+	clanHomeZones = [];
 	for (player in state.players) {
 		if(player.isAI) {
 			remainingEnemies.push(player);
+			clanHomeZones.push(player.getTownHall().zone);
 		}
 	}
 }
@@ -119,8 +118,10 @@ function deliverFoodShipment() {
 function checkIfPlayerDefeatAI() {
 
 	if(len(state.players) - 1 < remainingEnemies.length) {
-		for(p in remainingEnemies) {
-			var clan = p.clan;
+
+		var i = 0;
+		while(i < remainingEnemies.length) {
+			var p = remainingEnemies[i];
 			var found = false;
 			for(a in state.players) {
 				if(a == p) {
@@ -132,21 +133,13 @@ function checkIfPlayerDefeatAI() {
 			if(!found) {
 
 				// Only if the human controls the zone do we give reward
-				var index = 0;
-				while(index < 6) {
-					if(clan == clanHomeZoneIndex[index]) {
-						break;
-					}
-					index++;
-				}
-
-				if(clanHomeZones[index].owner == human)
+				if(clanHomeZones[i].owner == human)
 					human.addResource(Resource.Wood, 1000, false);
-
-				getRemainingEnemies();
 				break;
 			}
 		}
+
+		getRemainingEnemies();
 	}
 }
 
