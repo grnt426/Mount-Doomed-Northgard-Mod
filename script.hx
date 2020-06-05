@@ -106,7 +106,11 @@ function onEachLaunch() {
 		else {
 			human = player;
 			humanClan = player.clan;
-			human.addBonus({id:Bonus.BSilo, buildingId:Building.FoodSilo, isAdvanced:false});
+
+			// The DB was modified to allow players to build them wherever they have ports, their town hall, or farms.
+			// They also store more food total, and increase production much further
+			// NOTE: the actual bonus doesn work, so it is commented out for now so as to not confuse the player
+			// human.addBonus({id:Bonus.BSilo, buildingId:Building.FoodSilo, isAdvanced:false});
 		}
 	}
 
