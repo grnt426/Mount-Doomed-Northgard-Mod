@@ -3,6 +3,7 @@ var deliveryTime = []; // SAVED
 var deliveryAmount = []; // SAVED
 var nextDelivery = -1; // SAVED
 var foodDeliveryObjId = "FOODDELITIME";
+var deliverySetupFinished = false; // SAVED
 // END Food delivery data
 
 // Difficulty selection
@@ -51,20 +52,11 @@ function init() {
  * @Override
  */
 function saveState() {
-	state.scriptProps = {deliveryTime:deliveryTime, deliveryAmount:deliveryAmount, nextDelivery:nextDelivery, difficulty:difficulty};
+	state.scriptProps = {deliveryTime:deliveryTime, deliveryAmount:deliveryAmount,
+			nextDelivery:nextDelivery, difficulty:difficulty, deliverySetupFinished:deliverySetupFinished};
 }
 
 function onFirstLaunch() {
-
-	// Regular food shipments to keep the player alive
-	populateDeliveries(calToSeconds(1, 0), 500);
-	populateDeliveries(calToSeconds(9, 0), 500);
-	populateDeliveries(calToSeconds(0, 1), 200);
-	populateDeliveries(calToSeconds(7, 1), 700);
-	populateDeliveries(calToSeconds(1, 2), 300);
-	populateDeliveries(calToSeconds(8, 2), 800);
-	populateDeliveries(calToSeconds(2, 3), 600);
-	populateDeliveries(calToSeconds(11, 3), 900);
 
 	// All players start with their warchief
 	for (player in state.players) {
@@ -113,7 +105,7 @@ function onEachLaunch() {
 		}
 	}
 
-	state.objectives.add(foodDeliveryObjId, "Next Food Shipment", {showProgressBar:true, autoCheck:false});
+	state.objectives.add(foodDeliveryObjId, "Next Food Shipment", {showProgressBar:true, autoCheck:false, visible:false});
 	state.objectives.setCurrentVal(foodDeliveryObjId, 0);
 }
 
@@ -140,7 +132,6 @@ function regularUpdate(dt : Float) {
  */
 function checkDifficultySelection() {
 	if(difficulty == null) {
-		human.addResource(Resource.Money, 100);
 		if(human.hasBuilding(Building.House, true)) {
 			difficulty = diffEasy;
 			state.objectives.setStatus(difficultyEasyObjId, OStatus.Done);
@@ -158,6 +149,13 @@ function checkDifficultySelection() {
 			state.objectives.setStatus(difficultyEasyObjId, OStatus.Missed);
 			state.objectives.setStatus(difficultyNormObjId, OStatus.Missed);
 			state.objectives.setStatus(difficultyHardObjId, OStatus.Done);
+		}
+	}
+	else {
+		if(state.time > 90) {
+			state.objectives.setVisible(difficultyEasyObjId, false);
+			state.objectives.setVisible(difficultyNormObjId, false);
+			state.objectives.setVisible(difficultyHardObjId, false);
 		}
 	}
 }
@@ -182,19 +180,71 @@ function getRemainingEnemies() {
 }
 
 function deliverFoodShipment() {
-	if(nextDelivery == -1) {
-		nextDelivery = deliveryTime.shift();
-		state.objectives.setGoalVal(foodDeliveryObjId, nextDelivery);
+
+	if(difficulty != null && !deliverySetupFinished) {
+		setupFoodDelivery();
+	}
+	else if(deliverySetupFinished) {
+		if(nextDelivery == -1) {
+			nextDelivery = deliveryTime.shift();
+			state.objectives.setGoalVal(foodDeliveryObjId, nextDelivery);
+			state.objectives.setVisible(foodDeliveryObjId, true);
+		}
+
+		if(nextDelivery <= state.time) {
+			var amount = deliveryAmount.shift();
+			for (player in state.players) {
+				player.addResource(Resource.Food, amount, false);
+			}
+			nextDelivery = deliveryTime.shift();
+			state.objectives.setGoalVal(foodDeliveryObjId, nextDelivery);
+		}
+	}
+}
+
+function setupFoodDelivery() {
+
+	// Regular food shipments to keep the player alive
+	switch(difficulty) {
+		case diffEasy:
+			populateDeliveries(calToSeconds(1, 0), 500);
+			populateDeliveries(calToSeconds(9, 0), 500);
+			populateDeliveries(calToSeconds(0, 1), 200);
+			populateDeliveries(calToSeconds(7, 1), 700);
+			populateDeliveries(calToSeconds(1, 2), 300);
+			populateDeliveries(calToSeconds(8, 2), 800);
+			populateDeliveries(calToSeconds(2, 3), 600);
+			populateDeliveries(calToSeconds(11, 3), 900);
+			populateDeliveries(calToSeconds(5, 4), 700);
+			populateDeliveries(calToSeconds(11, 4), 200);
+			populateDeliveries(calToSeconds(5, 5), 500);
+			populateDeliveries(calToSeconds(11, 5), 500);
+			populateDeliveries(calToSeconds(5, 6), 1000);
+		case diffNorm:
+			populateDeliveries(calToSeconds(1, 0), 500);
+			populateDeliveries(calToSeconds(9, 0), 300);
+			populateDeliveries(calToSeconds(0, 1), 200);
+			populateDeliveries(calToSeconds(7, 1), 500);
+			populateDeliveries(calToSeconds(1, 2), 300);
+			populateDeliveries(calToSeconds(8, 2), 400);
+			populateDeliveries(calToSeconds(2, 3), 400);
+			populateDeliveries(calToSeconds(11, 3), 400);
+			populateDeliveries(calToSeconds(9, 4), 400);
+			populateDeliveries(calToSeconds(3, 5), 400);
+		case diffHard: // The same as normal for now
+			populateDeliveries(calToSeconds(1, 0), 500);
+			populateDeliveries(calToSeconds(9, 0), 300);
+			populateDeliveries(calToSeconds(0, 1), 200);
+			populateDeliveries(calToSeconds(7, 1), 500);
+			populateDeliveries(calToSeconds(1, 2), 300);
+			populateDeliveries(calToSeconds(8, 2), 400);
+			populateDeliveries(calToSeconds(2, 3), 400);
+			populateDeliveries(calToSeconds(11, 3), 400);
+			populateDeliveries(calToSeconds(9, 4), 400);
+			populateDeliveries(calToSeconds(3, 5), 400);
 	}
 
-	if(nextDelivery <= state.time) {
-		var amount = deliveryAmount.shift();
-		for (player in state.players) {
-			player.addResource(Resource.Food, amount, false);
-		}
-		nextDelivery = deliveryTime.shift();
-		state.objectives.setGoalVal(foodDeliveryObjId, nextDelivery);
-	}
+	deliverySetupFinished = true;
 }
 
 /**
