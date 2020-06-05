@@ -1,12 +1,25 @@
 // Food delivery data
-var deliveryTime = []; // TO SAVE
-var deliveryAmount = []; // TO SAVE
-var nextDelivery = -1; // TO SAVE
+var deliveryTime = []; // SAVED
+var deliveryAmount = []; // SAVED
+var nextDelivery = -1; // SAVED
 var foodDeliveryObjId = "FOODDELITIME";
 // END Food delivery data
 
+// Difficulty selection
+var difficulty = null; // SAVED
+var diffEasy = "EASY";
+var diffNorm = "NORMAL";
+var diffHard = "HARD";
+
+var difficultyEasyObjId = "DIFFEASYOBJ";
+var difficultyNormObjId = "DIFFNORMOBJ";
+var difficultyHardObjId = "DIFFHARDOBJ";
+// END difficulty selection
+
+// AI town zone info
 var remainingEnemies = [];
 var clanHomeZones = [];
+// END AI town zone info
 
 // Human Player Data
 var human;
@@ -33,12 +46,12 @@ function init() {
 
 /**
  * Undocumented feature (found in Discord chat) used to save your properties as needed
- * when the game is saved. Should be restored automatically.
+ * when the game is saved. Should be restored automatically when game is loaded.
  *
  * @Override
  */
 function saveState() {
-
+	state.scriptProps = {deliveryTime:deliveryTime, deliveryAmount:deliveryAmount, nextDelivery:nextDelivery, difficulty:difficulty};
 }
 
 function onFirstLaunch() {
@@ -65,10 +78,14 @@ function onFirstLaunch() {
 
 	// Give all players resources to start
 	for (player in state.players) {
-		player.addResource(Resource.Food, 500, false);
+		player.addResource(Resource.Food, 50, false);
 		player.addResource(Resource.Wood, 400, false);
 		player.addResource(Resource.Money, 600, false);
 	}
+
+	state.objectives.add(difficultyEasyObjId, "Build House for Easy");
+	state.objectives.add(difficultyNormObjId, "Build Scout Camp for Normal");
+	state.objectives.add(difficultyHardObjId, "Build Logging Camp for Hard");
 }
 
 function onEachLaunch() {
@@ -102,6 +119,8 @@ function onEachLaunch() {
 
 function regularUpdate(dt : Float) {
 
+	checkDifficultySelection();
+
 	deliverFoodShipment();
 
 	updateNextDeliveryProgress();
@@ -113,6 +132,33 @@ function regularUpdate(dt : Float) {
 		notKilled = false;
 		var ai = remainingEnemies[0];
 		ai.zones[0].takeControl(human);
+	}
+}
+
+/**
+ * Players can choose a difficulty by starting to build a house (easy), scout camp (normal), or logging camp (hard)
+ */
+function checkDifficultySelection() {
+	if(difficulty == null) {
+		human.addResource(Resource.Money, 100);
+		if(human.hasBuilding(Building.House, true)) {
+			difficulty = diffEasy;
+			state.objectives.setStatus(difficultyEasyObjId, OStatus.Done);
+			state.objectives.setStatus(difficultyNormObjId, OStatus.Missed);
+			state.objectives.setStatus(difficultyHardObjId, OStatus.Missed);
+		}
+		else if(human.hasBuilding(Building.ScoutCamp, true)) {
+			difficulty = diffNorm;
+			state.objectives.setStatus(difficultyEasyObjId, OStatus.Missed);
+			state.objectives.setStatus(difficultyNormObjId, OStatus.Done);
+			state.objectives.setStatus(difficultyHardObjId, OStatus.Missed);
+		}
+		else if(human.hasBuilding(Building.WoodLodge, true)) {
+			difficulty = diffHard;
+			state.objectives.setStatus(difficultyEasyObjId, OStatus.Missed);
+			state.objectives.setStatus(difficultyNormObjId, OStatus.Missed);
+			state.objectives.setStatus(difficultyHardObjId, OStatus.Done);
+		}
 	}
 }
 
