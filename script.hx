@@ -1,7 +1,8 @@
 // Food delivery data
-var deliveryTime = [];
-var deliveryAmount = [];
-var nextDelivery = -1;
+var deliveryTime = []; // TO SAVE
+var deliveryAmount = []; // TO SAVE
+var nextDelivery = -1; // TO SAVE
+var foodDeliveryObjId = "FOODDELITIME";
 // END Food delivery data
 
 var remainingEnemies = [];
@@ -17,6 +18,12 @@ var notKilled = true;
 var notKilled2 = true;
 // END testing stuff
 
+/**
+ * Called right after the game starts, including after a load (so not just once when the
+ * game first starts).
+ *
+ * @Override
+ */
 function init() {
 	if (state.time == 0)
 		onFirstLaunch();
@@ -24,16 +31,27 @@ function init() {
 	onEachLaunch();
 }
 
+/**
+ * Undocumented feature (found in Discord chat) used to save your properties as needed
+ * when the game is saved. Should be restored automatically.
+ *
+ * @Override
+ */
+function saveState() {
+
+}
+
 function onFirstLaunch() {
 
 	// Regular food shipments to keep the player alive
-	populateDeliveries(calToSeconds(0, 1), 500);
-	populateDeliveries(calToSeconds(6, 1), 200);
-	populateDeliveries(calToSeconds(1, 2), 700);
-	populateDeliveries(calToSeconds(6, 2), 300);
-	populateDeliveries(calToSeconds(1, 3), 800);
-	populateDeliveries(calToSeconds(2, 4), 600);
-	populateDeliveries(calToSeconds(4, 5), 900);
+	populateDeliveries(calToSeconds(1, 0), 500);
+	populateDeliveries(calToSeconds(9, 0), 500);
+	populateDeliveries(calToSeconds(0, 1), 200);
+	populateDeliveries(calToSeconds(7, 1), 700);
+	populateDeliveries(calToSeconds(1, 2), 300);
+	populateDeliveries(calToSeconds(8, 2), 800);
+	populateDeliveries(calToSeconds(2, 3), 600);
+	populateDeliveries(calToSeconds(11, 3), 900);
 
 	// All players start with their warchief
 	for (player in state.players) {
@@ -45,7 +63,7 @@ function onFirstLaunch() {
 		summonWarchief(player, hall.zone, hall.x - 5, hall.y - 5);
 	}
 
-	// Give all players food to start
+	// Give all players resources to start
 	for (player in state.players) {
 		player.addResource(Resource.Food, 500, false);
 		player.addResource(Resource.Wood, 400, false);
@@ -77,10 +95,16 @@ function onEachLaunch() {
 			human.discoverAll();
 		}
 	}
+
+	state.objectives.add(foodDeliveryObjId, "Next Food Shipment", {showProgressBar:true, autoCheck:false});
+	state.objectives.setCurrentVal(foodDeliveryObjId, 0);
 }
 
 function regularUpdate(dt : Float) {
+
 	deliverFoodShipment();
+
+	updateNextDeliveryProgress();
 
 	checkIfPlayerDefeatAI();
 
@@ -90,6 +114,10 @@ function regularUpdate(dt : Float) {
 		var ai = remainingEnemies[0];
 		ai.zones[0].takeControl(human);
 	}
+}
+
+function updateNextDeliveryProgress() {
+	state.objectives.setCurrentVal(foodDeliveryObjId, state.time);
 }
 
 /**
@@ -110,14 +138,16 @@ function getRemainingEnemies() {
 function deliverFoodShipment() {
 	if(nextDelivery == -1) {
 		nextDelivery = deliveryTime.shift();
+		state.objectives.setGoalVal(foodDeliveryObjId, nextDelivery);
 	}
 
-	if(nextDelivery / 10 <= state.time) {
+	if(nextDelivery <= state.time) {
 		var amount = deliveryAmount.shift();
 		for (player in state.players) {
 			player.addResource(Resource.Food, amount, false);
 		}
 		nextDelivery = deliveryTime.shift();
+		state.objectives.setGoalVal(foodDeliveryObjId, nextDelivery);
 	}
 }
 
