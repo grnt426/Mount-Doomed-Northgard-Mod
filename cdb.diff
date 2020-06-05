@@ -39,6 +39,20 @@
 			}
 		}
 	},
+	"building": {
+		"FoodSilo": {
+			"props": {
+				"requireOneBuilding": {
+					"1": {
+						"building": "Port"
+					},
+					"2": {
+						"building": "TownHall"
+					}
+				}
+			}
+		}
+	},
 	"rule": {
 		"Eruptions": {
 			"values": {
@@ -51,6 +65,26 @@
 			"values": {
 				"0": {
 					"val": 1000
+				}
+			}
+		}
+	},
+	"bonus": {
+		"BSilo": {
+			"baseVals": {
+				"0": {
+					"val": 2
+				},
+				"1": {
+					"val": 1.5
+				}
+			},
+			"advancedVals": {
+				"0": {
+					"val": 2
+				},
+				"1": {
+					"val": 1.5
 				}
 			}
 		}

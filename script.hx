@@ -28,8 +28,6 @@ var humanClan;
 // END human player data
 
 // Testing stuff
-var notKilled = true;
-var notKilled2 = true;
 // END testing stuff
 
 /**
@@ -46,8 +44,12 @@ function init() {
 }
 
 /**
- * Undocumented feature (found in Discord chat) used to save your properties as needed
+ * Undocumented feature (found in Northgard Discord chat) used to save your properties as needed
  * when the game is saved. Should be restored automatically when game is loaded.
+ *
+ * NOTE: Saving/Loading does not appear to work at all, so this is just preparation for
+ * when that stuff does work. This is a known bug with most all custom maps that add
+ * their own objectives to the map. Not much can be done until that is fixed.
  *
  * @Override
  */
@@ -75,6 +77,7 @@ function onFirstLaunch() {
 		player.addResource(Resource.Money, 600, false);
 	}
 
+	// To remind players how to choose the difficulty.
 	state.objectives.add(difficultyEasyObjId, "Build House for Easy");
 	state.objectives.add(difficultyNormObjId, "Build Scout Camp for Normal");
 	state.objectives.add(difficultyHardObjId, "Build Logging Camp for Hard");
@@ -93,6 +96,8 @@ function onEachLaunch() {
 	addRule(Rule.Eruptions);
 	addRule(Rule.LethalRuins);
 
+	// grab all the players, figure out which one is Human, and for the AI store their homes
+	// so we can figure out when they were defeated and who defeated them.
 	for (player in state.players) {
 		if(player.isAI) {
 			remainingEnemies.push(player);
@@ -101,14 +106,22 @@ function onEachLaunch() {
 		else {
 			human = player;
 			humanClan = player.clan;
-			human.discoverAll();
+			human.addBonus({id:Bonus.BSilo, buildingId:Building.FoodSilo, isAdvanced:false});
 		}
 	}
 
+	// All objectives must be setup within the init function, however until a difficulty is chosen we don't want to
+	// show this objective.
 	state.objectives.add(foodDeliveryObjId, "Next Food Shipment", {showProgressBar:true, autoCheck:false, visible:false});
 	state.objectives.setCurrentVal(foodDeliveryObjId, 0);
 }
 
+/**
+ * This is called ~0.5 seconds. There is a maximum runtime allowed (I think 500ms) or else the entire game
+ * crashes. This is undocumented, but was found in the Northgard Discord chat.
+ *
+ * @Override
+ */
 function regularUpdate(dt : Float) {
 
 	checkDifficultySelection();
@@ -118,17 +131,11 @@ function regularUpdate(dt : Float) {
 	updateNextDeliveryProgress();
 
 	checkIfPlayerDefeatAI();
-
-	// test to see if defeat code works
-	if(state.time > 3000 && notKilled) {
-		notKilled = false;
-		var ai = remainingEnemies[0];
-		ai.zones[0].takeControl(human);
-	}
 }
 
 /**
- * Players can choose a difficulty by starting to build a house (easy), scout camp (normal), or logging camp (hard)
+ * Players can choose a difficulty by starting to build a house (easy), scout camp (normal), or logging camp (hard).
+ * Once a difficulty has been chosen, it can't be changed. The difficulty Objectives will disappear after some time.
  */
 function checkDifficultySelection() {
 	if(difficulty == null) {
@@ -179,6 +186,13 @@ function getRemainingEnemies() {
 	}
 }
 
+/**
+ * This will determine what food shipment to give the player and when.
+ * Once a food shipment is made, the next one is automatically pulled.
+ *
+ * No food shipment will be made until a difficulty is chosen, which will then
+ * populate all the food delivery data.
+ */
 function deliverFoodShipment() {
 
 	if(difficulty != null && !deliverySetupFinished) {
@@ -202,7 +216,14 @@ function deliverFoodShipment() {
 	}
 }
 
+/**
+ * Just setups the food delivery data based on difficulty. Only call this once.
+ */
 function setupFoodDelivery() {
+
+	// Just a guard to make sure we don't call this twice.
+	if(deliverySetupFinished)
+		return;
 
 	// Regular food shipments to keep the player alive
 	switch(difficulty) {
@@ -248,11 +269,15 @@ function setupFoodDelivery() {
 }
 
 /**
- * Players get a reward of food for destroying enemy townhalls.
+ * Players get a reward of food for destroying enemy townhalls, but only if the human
+ * is the player to take the territory when the AI was defeated. If the AI takes it, no
+ * reward is given.
  */
 function checkIfPlayerDefeatAI() {
 	if(len(state.players) - 1 < remainingEnemies.length) {
 		var i = 0;
+
+		// try to figure out which AI is missing
 		while(i < remainingEnemies.length) {
 			var p = remainingEnemies[i];
 			var found = false;
@@ -263,6 +288,8 @@ function checkIfPlayerDefeatAI() {
 				}
 			}
 
+			// If we can't find the AI in the list of remaining players, that means
+			// we found the defeated AI
 			if(!found) {
 
 				// Only if the human controls the zone do we give reward
@@ -272,6 +299,7 @@ function checkIfPlayerDefeatAI() {
 			}
 		}
 
+		// Keep this list updated
 		getRemainingEnemies();
 	}
 }
@@ -294,11 +322,22 @@ function computeFoodReward() {
 	return state.time > calToSeconds(0, 10) ? 0 : 2000 * (1 - state.time / calToSeconds(0, 10));
 }
 
+/**
+ * Just a helper function to make sure the correct data structures are used when
+ * adding a new delivery.
+ */
 function populateDeliveries(time:Int, amount:Int) {
 	deliveryTime.push(time);
 	deliveryAmount.push(amount);
 }
 
+/**
+ * Given a Month and Year, it will return the number of real time seconds that
+ * represents. A Month is defined as 60 seconds long. One year is therefore
+ * 720 seconds or 12 minutes.
+ *
+ *
+ */
 function calToSeconds(month:Int, year:Int) {
 
 	// 60 seconds per month, and 12 months in a year
