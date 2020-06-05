@@ -1,0 +1,41 @@
+{
+	"unit": {
+		"Villager": {
+			"produce": {
+				"0": {
+					"q": 1
+				}
+			}
+		},
+		"Farmer": {
+			"produce": {
+				"0": {
+					"q": 0.75
+				}
+			}
+		},
+		"Sheep": {
+			"produce": {
+				"0": {
+					"q": 0.135
+				}
+			}
+		}
+	},
+	"rule": {
+		"Eruptions": {
+			"values": {
+				"1": {
+					"val": 2.3
+				}
+			}
+		},
+		"FoodStarterPack": {
+			"values": {
+				"0": {
+					"val": 1000
+				}
+			}
+		}
+	}
+}
