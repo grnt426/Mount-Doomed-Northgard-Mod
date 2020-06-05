@@ -1,3 +1,19 @@
+/**
+ * =======================================
+ * 				Mount Doomed
+ *
+ * This was written when the mod maker was in Beta. If you are still using this
+ * when the full version comes out, I wouldn't use this as a reference until
+ * I update it to use more of the available features. Many things in here
+ * aren't great, but were the only way to do it in Beta.
+ *
+ * Things that don't work/exist or only we can't do: classes, typedefs,
+ * maps, .length on some arrays from the ScriptAPI. Some functions don't
+ * work as documented or work weirdly.
+ *
+ * =======================================
+ */
+
 // Food delivery data
 var deliveryTime = []; // SAVED
 var deliveryAmount = []; // SAVED
