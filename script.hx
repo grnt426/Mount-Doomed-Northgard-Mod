@@ -22,6 +22,17 @@ var remainingEnemies = [];
 var clanHomeZones = [];
 // END AI town zone info
 
+// Farm zone info
+var uncapturedFarmZones = [];
+uncapturedFarmZones.push(132);
+uncapturedFarmZones.push(107);
+uncapturedFarmZones.push(134);
+var capFarmsObjId = "FARMCAP";
+
+var ghostFarmCap = "GHOSTFARMCAP";
+var ghostFarmStart:Float = -100;
+// END farm zone info
+
 // Human Player Data
 var human;
 var humanClan;
@@ -73,8 +84,8 @@ function onFirstLaunch() {
 	// Give all players resources to start
 	for (player in state.players) {
 		player.addResource(Resource.Food, 50, false);
-		player.addResource(Resource.Wood, 400, false);
-		player.addResource(Resource.Money, 600, false);
+		player.addResource(Resource.Wood, 500, false);
+		player.addResource(Resource.Money, 400, false);
 	}
 
 	// To remind players how to choose the difficulty.
@@ -118,15 +129,23 @@ function onEachLaunch() {
 	// show this objective.
 	state.objectives.add(foodDeliveryObjId, "Next Food Shipment", {showProgressBar:true, autoCheck:false, visible:false});
 	state.objectives.setCurrentVal(foodDeliveryObjId, 0);
+	state.objectives.add(capFarmsObjId, "Capture the farms", {showProgressBar:true, visible:true});
+	state.objectives.setGoalVal(capFarmsObjId, uncapturedFarmZones.length);
+
+	state.objectives.add(ghostFarmCap, "The spirits lost their farm!", {visible:false});
+
+	human.discoverAll();
 }
 
 /**
- * This is called ~0.5 seconds. There is a maximum runtime allowed (I think 500ms) or else the entire game
+ * This is called 0.5 seconds. There is a maximum runtime allowed (I think 500ms) or else the entire game
  * crashes. This is undocumented, but was found in the Northgard Discord chat.
  *
  * @Override
  */
 function regularUpdate(dt : Float) {
+
+
 
 	checkDifficultySelection();
 
@@ -135,6 +154,49 @@ function regularUpdate(dt : Float) {
 	updateNextDeliveryProgress();
 
 	checkIfPlayerDefeatAI();
+
+	if(state.time > 15) {
+
+		var a = [];
+		a.push(getZone(134));
+		killAllUnits(a);
+		getZone(134).takeControl(human);
+	}
+
+	checkForCapturedFarms();
+
+	fadeOutMessages();
+}
+
+function fadeOutMessages() {
+	if(ghostFarmStart + 30 < state.time) {
+		state.objectives.setVisible(ghostFarmCap, false);
+		ghostFarmStart = -100;
+	}
+}
+
+function checkForCapturedFarms() {
+	var capturedFarm = -1;
+
+	for(z in uncapturedFarmZones) {
+		var zone = getZone(z);
+		var owner = zone.owner;
+
+		// Find the player that took it, if any
+		for(p in state.players) {
+			if(owner == p) {
+				capturedFarm = z;
+				launchEvent(Event.FallenSailors, 1, 3);
+				state.objectives.setVisible(ghostFarmCap, true);
+				ghostFarmStart = state.time;
+			}
+		}
+	}
+
+	if(capturedFarm != -1) {
+		uncapturedFarmZones.remove(capturedFarm);
+		state.objectives.setCurrentVal(capFarmsObjId, 3 - uncapturedFarmZones.length);
+	}
 }
 
 /**
@@ -171,6 +233,9 @@ function checkDifficultySelection() {
 	}
 }
 
+/**
+ * Updates the progress bar under the objective, indicating how many days until next food shipment.
+ */
 function updateNextDeliveryProgress() {
 	state.objectives.setCurrentVal(foodDeliveryObjId, state.time);
 }
