@@ -1,16 +1,9 @@
 {
 	"unit": {
-		"Villager": {
-			"produce": {
-				"0": {
-					"q": 0
-				}
-			}
-		},
 		"Farmer": {
 			"produce": {
 				"0": {
-					"q": 0.75
+					"q": 0.7
 				}
 			}
 		},

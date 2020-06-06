@@ -312,17 +312,21 @@ function setupFoodDelivery() {
 		case diffEasy:
 			populateDeliveries(calToSeconds(1, 0), 500);
 			populateDeliveries(calToSeconds(9, 0), 500);
-			populateDeliveries(calToSeconds(0, 1), 200);
+			populateDeliveries(calToSeconds(11, 0), 200);
+			populateDeliveries(calToSeconds(0, 1), 400);
+			populateDeliveries(calToSeconds(4, 1), 200);
 			populateDeliveries(calToSeconds(7, 1), 700);
-			populateDeliveries(calToSeconds(1, 2), 300);
-			populateDeliveries(calToSeconds(8, 2), 800);
+			populateDeliveries(calToSeconds(10, 1), 200);
+			populateDeliveries(calToSeconds(1, 2), 700);
+			populateDeliveries(calToSeconds(5, 2), 150);
+			populateDeliveries(calToSeconds(8, 2), 1100);
 			populateDeliveries(calToSeconds(2, 3), 600);
-			populateDeliveries(calToSeconds(11, 3), 900);
-			populateDeliveries(calToSeconds(5, 4), 700);
-			populateDeliveries(calToSeconds(11, 4), 200);
-			populateDeliveries(calToSeconds(5, 5), 500);
-			populateDeliveries(calToSeconds(11, 5), 500);
-			populateDeliveries(calToSeconds(5, 6), 1000);
+			populateDeliveries(calToSeconds(9, 3), 900);
+			populateDeliveries(calToSeconds(4, 4), 700);
+			populateDeliveries(calToSeconds(10, 4), 200);
+			populateDeliveries(calToSeconds(3, 5), 500);
+			populateDeliveries(calToSeconds(9, 5), 500);
+			populateDeliveries(calToSeconds(2, 6), 1000);
 		case diffNorm:
 			populateDeliveries(calToSeconds(1, 0), 500);
 			populateDeliveries(calToSeconds(9, 0), 300);
@@ -403,9 +407,11 @@ function len(a):Int {
 /**
  * Players get a decreasing amount of food based on the current time.
  * After year 10, no food is given.
+ *
+ * Food reward is a hyperbolic function
  */
 function computeFoodReward() {
-	return state.time > calToSeconds(0, 10) ? 0 : 2000 * (1 - state.time / calToSeconds(0, 10));
+	return state.time > calToSeconds(0, 10) ? 0 : 1.6 / (5 + 0.005 * state.time) * 10000;
 }
 
 /**
