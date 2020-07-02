@@ -15,8 +15,8 @@
  */
 
 // Food delivery data
-var deliveryTime = []; // SAVED
-var deliveryAmount = []; // SAVED
+var deliveryTime:Array<Int> = []; // SAVED
+var deliveryAmount:Array<Int> = []; // SAVED
 var nextDelivery = -1; // SAVED
 var foodDeliveryObjId = "FOODDELITIME";
 var deliverySetupFinished = false; // SAVED
@@ -50,9 +50,25 @@ var ghostFarmStart:Float = -100;
 // END farm zone info
 
 // Human Player Data
-var human;
+var human:Player;
 var humanClan;
+var warchiefFirstDeath:Bool;
 // END human player data
+
+// Dialog Data
+var arriveAtIslandText = ["This island has seen many fall before it, looking to plunder its fertile lands.",
+							"NO MORE! The fallen now guard these lands.",
+							"War amongst yourselves if you must, but if you take our farms, the failures of the past shall haunt you!"
+];
+var arrivalTextShown = false;
+
+var farmTakenText = "You were warned about taking our farms, now feel our wrath!";
+var farmTakenTextShown = false;
+
+var allFarmsTakenText = "Your greed has shown no boundary. We shall show to restraint in taking what is ours!";
+var allFarmsTakenTextShown = false;
+
+// END Dialog Data
 
 // Testing stuff
 // END testing stuff
@@ -95,19 +111,19 @@ function onFirstLaunch() {
 		// as the warchief will spawn inside, and then happily walk outside. However, it looks
 		// nicer to offset by a little bit.
 		summonWarchief(player, hall.zone, hall.x - 5, hall.y - 5);
-	}
 
-	// Give all players resources to start
-	for (player in state.players) {
+		// Give all players resources to start
 		player.addResource(Resource.Food, 50, false);
 		player.addResource(Resource.Wood, 500, false);
 		player.addResource(Resource.Money, 400, false);
+
+		player.addBonus({id:Bonus.BSiloImproved, buildingId:Building.FoodSilo, isAdvanced:false});
 	}
 
 	// To remind players how to choose the difficulty.
-	state.objectives.add(difficultyEasyObjId, "Build House for Easy");
-	state.objectives.add(difficultyNormObjId, "Build Scout Camp for Normal");
-	state.objectives.add(difficultyHardObjId, "Build Logging Camp for Hard");
+	state.objectives.add(difficultyEasyObjId, "Easy, More Food", {visible:true}, {name:"Easy", action:"callbackEasyDiff"});
+	state.objectives.add(difficultyNormObjId, "Normal", {visible:true}, {name:"Medium", action:"callbackMediumDiff"});
+	state.objectives.add(difficultyHardObjId, "Hard, Less Food", {visible:true}, {name:"Hard", action:"callbackHardDiff"});
 }
 
 function onEachLaunch() {
@@ -120,7 +136,7 @@ function onEachLaunch() {
 	// Setup map rules
 	addRule(Rule.VillagerStrike);
 	addRule(Rule.SuperScout);
-	addRule(Rule.Eruptions);
+	addRule(Rule.Eruptions); // Only works year > 2 years, see DB->Events
 	addRule(Rule.LethalRuins);
 
 	// grab all the players, figure out which one is Human, and for the AI store their homes
@@ -136,6 +152,7 @@ function onEachLaunch() {
 
 			// The DB was modified to allow players to build them wherever they have ports, their town hall, or farms.
 			// They also store more food total, and increase production much further
+
 			// NOTE: the actual bonus doesn work, so it is commented out for now so as to not confuse the player
 			// human.addBonus({id:Bonus.BSilo, buildingId:Building.FoodSilo, isAdvanced:false});
 		}
@@ -152,12 +169,14 @@ function onEachLaunch() {
 }
 
 /**
- * This is called 0.5 seconds. There is a maximum runtime allowed (I think 500ms) or else the entire game
+ * This is called every 0.5 seconds. There is a maximum runtime allowed (I think 500ms) or else the entire game
  * crashes. This is undocumented, but was found in the Northgard Discord chat.
  *
  * @Override
  */
 function regularUpdate(dt : Float) {
+
+	timedDialog();
 
 	checkDifficultySelection();
 
@@ -170,6 +189,17 @@ function regularUpdate(dt : Float) {
 	checkForCapturedFarms();
 
 	fadeOutMessages();
+}
+
+function timedDialog() {
+	if(state.time > 5 && !arrivalTextShown) {
+		setPause(true);
+		for(text in arriveAtIslandText)
+			talk(text, {name:"Hungry Spirits", who:Banner.Giant1});
+		arrivalTextShown = true;
+		setPause(false);
+
+	}
 }
 
 /**
@@ -207,42 +237,37 @@ function checkForCapturedFarms() {
 
 	// If it was taken, then let's not consider it in the future and update the objective.
 	if(capturedFarm != -1) {
+		if(!farmTakenTextShown) {
+			pauseAndShowDialog(farmTakenText, "Hungry Spirits", Banner.Giant1);
+			farmTakenTextShown = true;
+		}
 		uncapturedFarmZones.remove(capturedFarm);
 		state.objectives.setCurrentVal(capFarmsObjId, 3 - uncapturedFarmZones.length);
+	}
+
+	if(uncapturedFarmZones.length == 0 && !allFarmsTakenTextShown) {
+		pauseAndShowDialog(allFarmsTakenText, "Vengeful Spirits", Banner.Giant1);
+		allFarmsTakenTextShown = true;
 	}
 }
 
 /**
- * Players can choose a difficulty by starting to build a house (easy), scout camp (normal), or logging camp (hard).
- * Once a difficulty has been chosen, it can't be changed. The difficulty Objectives will disappear after some time.
+ * A helper function to reduce clutter in other functions by pausing to show a single line of text.
+ */
+function pauseAndShowDialog(text, name, who) {
+	setPause(true);
+	talk(text, {name:name, who:who});
+	setPause(false);
+}
+
+/**
+ * The difficulty Objectives need to disappear after some time.
  */
 function checkDifficultySelection() {
-	if(difficulty == null) {
-		if(human.hasBuilding(Building.House, true)) {
-			difficulty = diffEasy;
-			state.objectives.setStatus(difficultyEasyObjId, OStatus.Done);
-			state.objectives.setStatus(difficultyNormObjId, OStatus.Missed);
-			state.objectives.setStatus(difficultyHardObjId, OStatus.Missed);
-		}
-		else if(human.hasBuilding(Building.ScoutCamp, true)) {
-			difficulty = diffNorm;
-			state.objectives.setStatus(difficultyEasyObjId, OStatus.Missed);
-			state.objectives.setStatus(difficultyNormObjId, OStatus.Done);
-			state.objectives.setStatus(difficultyHardObjId, OStatus.Missed);
-		}
-		else if(human.hasBuilding(Building.WoodLodge, true)) {
-			difficulty = diffHard;
-			state.objectives.setStatus(difficultyEasyObjId, OStatus.Missed);
-			state.objectives.setStatus(difficultyNormObjId, OStatus.Missed);
-			state.objectives.setStatus(difficultyHardObjId, OStatus.Done);
-		}
-	}
-	else {
-		if(state.time > 90) {
-			state.objectives.setVisible(difficultyEasyObjId, false);
-			state.objectives.setVisible(difficultyNormObjId, false);
-			state.objectives.setVisible(difficultyHardObjId, false);
-		}
+	if(difficulty != null && state.time > 90) {
+		state.objectives.setVisible(difficultyEasyObjId, false);
+		state.objectives.setVisible(difficultyNormObjId, false);
+		state.objectives.setVisible(difficultyHardObjId, false);
 	}
 }
 
@@ -405,6 +430,16 @@ function len(a):Int {
 }
 
 /**
+ * Some arrays from ScriptAPI seem to have busted length field members. This function
+ * computes the length for those arrays.
+ *
+ * Example, state.players
+ */
+function lenU(a:Array<Unit>):Int {
+	var len = 0; for(p in a) len++; return len;
+}
+
+/**
  * Players get a decreasing amount of food based on the current time.
  * After year 10, no food is given.
  *
@@ -427,11 +462,30 @@ function populateDeliveries(time:Int, amount:Int) {
  * Given a Month and Year, it will return the number of real time seconds that
  * represents. A Month is defined as 60 seconds long. One year is therefore
  * 720 seconds or 12 minutes.
- *
- *
  */
 function calToSeconds(month:Int, year:Int) {
 
 	// 60 seconds per month, and 12 months in a year
 	return month * 60 + year * 60 * 12;
+}
+
+function callbackEasyDiff() {
+	difficulty = diffEasy;
+	state.objectives.setStatus(difficultyEasyObjId, OStatus.Done);
+	state.objectives.setStatus(difficultyNormObjId, OStatus.Missed);
+	state.objectives.setStatus(difficultyHardObjId, OStatus.Missed);
+}
+
+function callbackMediumDiff() {
+	difficulty = diffNorm;
+	state.objectives.setStatus(difficultyEasyObjId, OStatus.Missed);
+	state.objectives.setStatus(difficultyNormObjId, OStatus.Done);
+	state.objectives.setStatus(difficultyHardObjId, OStatus.Missed);
+}
+
+function callbackHardDiff() {
+	difficulty = diffHard;
+	state.objectives.setStatus(difficultyEasyObjId, OStatus.Missed);
+	state.objectives.setStatus(difficultyNormObjId, OStatus.Missed);
+	state.objectives.setStatus(difficultyHardObjId, OStatus.Done);
 }
