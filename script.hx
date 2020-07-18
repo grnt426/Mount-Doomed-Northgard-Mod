@@ -17,9 +17,16 @@
 // Food delivery data
 var deliveryTime:Array<Int> = []; // SAVED
 var deliveryAmount:Array<Int> = []; // SAVED
+
+// game time until the next delivery will be made, in seconds.
 var nextDelivery = -1; // SAVED
 var foodDeliveryObjId = "FOODDELITIME";
+
+// False until the player has made a difficulty selection and the delivery times/amounts are set.
 var deliverySetupFinished = false; // SAVED
+
+// This will be false after the final food delivery happens, otherwise it is true
+var canDeliverFood = true; // SAVED
 // END Food delivery data
 
 // Difficulty selection
@@ -33,10 +40,16 @@ var difficultyNormObjId = "DIFFNORMOBJ";
 var difficultyHardObjId = "DIFFHARDOBJ";
 // END difficulty selection
 
-// AI town zone info
+// AI Data
+
+// A list of all the AI players left in the game
 var remainingEnemies = [];
+
+// The zones the AI players occupy
 var clanHomeZones = [];
-// END AI town zone info
+
+var lastMonthFed = 0;
+// END AI Data
 
 // Farm zone info
 var uncapturedFarmZones = [];
@@ -44,6 +57,7 @@ uncapturedFarmZones.push(132);
 uncapturedFarmZones.push(107);
 uncapturedFarmZones.push(134);
 var capFarmsObjId = "FARMCAP";
+var allFarmsTaken = false;
 
 var ghostFarmCap = "GHOSTFARMCAP";
 var ghostFarmStart:Float = -100;
@@ -67,7 +81,6 @@ var farmTakenTextShown = false;
 
 var allFarmsTakenText = "Your greed has shown no boundary. We shall show to restraint in taking what is ours!";
 var allFarmsTakenTextShown = false;
-
 // END Dialog Data
 
 // Testing stuff
@@ -98,7 +111,7 @@ function init() {
  */
 function saveState() {
 	state.scriptProps = {deliveryTime:deliveryTime, deliveryAmount:deliveryAmount,
-			nextDelivery:nextDelivery, difficulty:difficulty, deliverySetupFinished:deliverySetupFinished};
+			nextDelivery:nextDelivery, difficulty:difficulty, deliverySetupFinished:deliverySetupFinished, canDeliverFood:canDeliverFood};
 }
 
 function onFirstLaunch() {
@@ -118,12 +131,27 @@ function onFirstLaunch() {
 		player.addResource(Resource.Money, 400, false);
 
 		player.addBonus({id:Bonus.BSiloImproved, buildingId:Building.FoodSilo, isAdvanced:false});
+
+		// Reveal the farms at start
+		for(i in uncapturedFarmZones)
+			player.discoverZone(getZone(i));
+
+		// TODO: no way to get the Volcano's zone ID, so we unfortunately can't reveal it
 	}
 
-	// To remind players how to choose the difficulty.
+	// Difficulty options
 	state.objectives.add(difficultyEasyObjId, "Easy, More Food", {visible:true}, {name:"Easy", action:"callbackEasyDiff"});
 	state.objectives.add(difficultyNormObjId, "Normal", {visible:true}, {name:"Medium", action:"callbackMediumDiff"});
 	state.objectives.add(difficultyHardObjId, "Hard, Less Food", {visible:true}, {name:"Hard", action:"callbackHardDiff"});
+
+	// All objectives must be setup within the init function, however until a difficulty is chosen we don't want to
+	// show this objective.
+	state.objectives.add(foodDeliveryObjId, "Next Food Shipment", {showProgressBar:true, autoCheck:false, visible:false});
+	state.objectives.setCurrentVal(foodDeliveryObjId, 0);
+	state.objectives.add(capFarmsObjId, "Capture the farms", {showProgressBar:true, visible:true});
+	state.objectives.setGoalVal(capFarmsObjId, uncapturedFarmZones.length);
+
+	state.objectives.add(ghostFarmCap, "The spirits lost their farm!", {visible:false});
 }
 
 function onEachLaunch() {
@@ -139,33 +167,18 @@ function onEachLaunch() {
 	addRule(Rule.Eruptions); // Only works year > 2 years, see DB->Events
 	addRule(Rule.LethalRuins);
 
-	// grab all the players, figure out which one is Human, and for the AI store their homes
+	// grab all the players, and for the AI store their homes
 	// so we can figure out when they were defeated and who defeated them.
 	for (player in state.players) {
 		if(player.isAI) {
 			remainingEnemies.push(player);
 			clanHomeZones.push(player.getTownHall().zone);
 		}
-		else {
-			human = player;
-			humanClan = player.clan;
-
-			// The DB was modified to allow players to build them wherever they have ports, their town hall, or farms.
-			// They also store more food total, and increase production much further
-
-			// NOTE: the actual bonus doesn work, so it is commented out for now so as to not confuse the player
-			// human.addBonus({id:Bonus.BSilo, buildingId:Building.FoodSilo, isAdvanced:false});
-		}
 	}
 
-	// All objectives must be setup within the init function, however until a difficulty is chosen we don't want to
-	// show this objective.
-	state.objectives.add(foodDeliveryObjId, "Next Food Shipment", {showProgressBar:true, autoCheck:false, visible:false});
-	state.objectives.setCurrentVal(foodDeliveryObjId, 0);
-	state.objectives.add(capFarmsObjId, "Capture the farms", {showProgressBar:true, visible:true});
-	state.objectives.setGoalVal(capFarmsObjId, uncapturedFarmZones.length);
-
-	state.objectives.add(ghostFarmCap, "The spirits lost their farm!", {visible:false});
+	// In a singleplayer game, me() returns the human player.
+	human = me();
+	humanClan = human.clan;
 }
 
 /**
@@ -176,19 +189,47 @@ function onEachLaunch() {
  */
 function regularUpdate(dt : Float) {
 
-	timedDialog();
+	// The editor will complain about @split, but it seems to work anyway.
+	@split[
+	timedDialog(),
 
-	checkDifficultySelection();
+	checkDifficultySelection(),
 
-	deliverFoodShipment();
+	deliverFoodShipment(),
 
-	updateNextDeliveryProgress();
+	giveAIBonus(),
 
-	checkIfPlayerDefeatAI();
+	updateNextDeliveryProgress(),
 
-	checkForCapturedFarms();
+	checkIfPlayerDefeatAI(),
 
-	fadeOutMessages();
+	checkForCapturedFarms(),
+
+	fadeOutMessages(),
+	];
+}
+
+/**
+ * The AI don't know how to play the map and will starve themselves to death.
+ * Unfortunately, the regular pushes of food to the AI aren't enough. Instead,
+ * we give the AI food equal to its pop every month to keep it alive.
+ */
+function giveAIBonus() {
+
+	// We only want to trigger this bonus once a month
+	var currentMonth = convertTimeToMonth(state.time);
+	if(lastMonthFed == currentMonth)
+		return;
+
+	lastMonthFed = currentMonth;
+
+	for(p in remainingEnemies) {
+		var villagerCount = 0;
+		for(u in p.units)
+			if(u.kind == Unit.Villager)
+				villagerCount++;
+		p.addResource(Resource.Food, villagerCount * 6 * 2);
+	}
 }
 
 function timedDialog() {
@@ -218,6 +259,11 @@ function fadeOutMessages() {
  * If any players capture a farm for the first time, then Fallen Sailors event is launched.
  */
 function checkForCapturedFarms() {
+
+	// No point in doing the below if all farms are taken.
+	if(allFarmsTaken)
+		return;
+
 	var capturedFarm = -1;
 
 	for(z in uncapturedFarmZones) {
@@ -248,6 +294,7 @@ function checkForCapturedFarms() {
 	if(uncapturedFarmZones.length == 0 && !allFarmsTakenTextShown) {
 		pauseAndShowDialog(allFarmsTakenText, "Vengeful Spirits", Banner.Giant1);
 		allFarmsTakenTextShown = true;
+		allFarmsTaken = true;
 	}
 }
 
@@ -285,10 +332,10 @@ function updateNextDeliveryProgress() {
 function getRemainingEnemies() {
 	remainingEnemies = [];
 	clanHomeZones = [];
-	for (player in state.players) {
-		if(player.isAI) {
-			remainingEnemies.push(player);
-			clanHomeZones.push(player.getTownHall().zone);
+	for (p in state.players) {
+		if(p.isAI) {
+			remainingEnemies.push(p);
+			clanHomeZones.push(p.getTownHall().zone);
 		}
 	}
 }
@@ -306,19 +353,26 @@ function deliverFoodShipment() {
 		setupFoodDelivery();
 	}
 	else if(deliverySetupFinished) {
-		if(nextDelivery == -1) {
-			nextDelivery = deliveryTime.shift();
-			state.objectives.setGoalVal(foodDeliveryObjId, nextDelivery);
-			state.objectives.setVisible(foodDeliveryObjId, true);
-		}
-
-		if(nextDelivery <= state.time) {
-			var amount = deliveryAmount.shift();
-			for (player in state.players) {
-				player.addResource(Resource.Food, amount, false);
+		if(canDeliverFood) {
+			if(nextDelivery == -1) {
+				nextDelivery = deliveryTime.shift();
+				state.objectives.setGoalVal(foodDeliveryObjId, nextDelivery);
+				state.objectives.setVisible(foodDeliveryObjId, true);
 			}
-			nextDelivery = deliveryTime.shift();
-			state.objectives.setGoalVal(foodDeliveryObjId, nextDelivery);
+
+			if(nextDelivery <= state.time) {
+				var amount = deliveryAmount.shift();
+				for (p in state.players) {
+					p.addResource(Resource.Food, amount, false);
+				}
+				if(deliveryTime.length == 0) {
+					canDeliverFood = false;
+				}
+				else {
+					nextDelivery = deliveryTime.shift();
+					state.objectives.setGoalVal(foodDeliveryObjId, nextDelivery);
+				}
+			}
 		}
 	}
 }
@@ -469,6 +523,13 @@ function calToSeconds(month:Int, year:Int) {
 	return month * 60 + year * 60 * 12;
 }
 
+/**
+ * Given a time, will return what month we are in, where 0 = March and 12 = February
+ */
+function convertTimeToMonth(time:Float) {
+	return toInt(time % 720 / 60);
+}
+
 function callbackEasyDiff() {
 	difficulty = diffEasy;
 	state.objectives.setStatus(difficultyEasyObjId, OStatus.Done);
@@ -488,4 +549,5 @@ function callbackHardDiff() {
 	state.objectives.setStatus(difficultyEasyObjId, OStatus.Missed);
 	state.objectives.setStatus(difficultyNormObjId, OStatus.Missed);
 	state.objectives.setStatus(difficultyHardObjId, OStatus.Done);
+	debug("Hard difficulty is the same as normal difficulty, I haven't worked it out yet, sorry :(");
 }
