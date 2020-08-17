@@ -11,6 +11,8 @@
  * maps, .length on some arrays from the ScriptAPI. Some functions don't
  * work as documented or work weirdly.
  *
+ * https://steamcommunity.com/sharedfiles/filedetails/?id=2169950278
+ *
  * =============================================================================
  */
 
@@ -136,6 +138,11 @@ function onFirstLaunch() {
 		for(i in uncapturedFarmZones)
 			player.discoverZone(getZone(i));
 
+		// No need to check if the player is an AI, it just won't work if they're human
+		// Not sure what inputs to provide, but the map editor allows -2 to 5 in half increments
+		// Going with 5 until devs answer what the values mean.
+		player.setAILevel(5);
+
 		// TODO: no way to get the Volcano's zone ID, so we unfortunately can't reveal it
 	}
 
@@ -197,7 +204,7 @@ function regularUpdate(dt : Float) {
 
 	deliverFoodShipment(),
 
-	giveAIBonus(),
+	// giveAIBonus(),
 
 	updateNextDeliveryProgress(),
 
@@ -274,7 +281,7 @@ function checkForCapturedFarms() {
 		for(p in state.players) {
 			if(owner == p) {
 				capturedFarm = z;
-				launchEvent(Event.FallenSailors, 1, 3);
+				state.events.setEvent(Event.FallenSailors, 1);
 				state.objectives.setVisible(ghostFarmCap, true);
 				ghostFarmStart = state.time;
 			}
@@ -460,8 +467,9 @@ function checkIfPlayerDefeatAI() {
 			// we found the defeated AI
 			if(!found) {
 
-				// Only if the human controls the zone do we give reward
-				if(clanHomeZones[i].owner == human)
+				// Only if the human has a unit in the territory that is theirs
+				// do they get the reward. Note: we sample the first unit and assume that is enough
+				if(clanHomeZones[i].units[0].isOwner(human))
 					human.addResource(Resource.Food, computeFoodReward(), false);
 				break;
 			}

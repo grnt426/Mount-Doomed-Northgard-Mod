@@ -33,6 +33,11 @@
 		}
 	},
 	"building": {
+		"ScoutCamp": {
+			"props": {
+				"maxNb": 4
+			}
+		},
 		"FoodSilo": {
 			"props": {
 				"requireOneBuilding": {
@@ -44,6 +49,11 @@
 					}
 				}
 			}
+		}
+	},
+	"event": {
+		"FallenSailors": {
+			"value": 2
 		}
 	},
 	"rule": {
